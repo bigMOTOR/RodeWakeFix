@@ -7,6 +7,7 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 20) {
             header
             statusCard
+            wakeStatus
             deviceGrid
             actions
             activity
@@ -14,6 +15,17 @@ struct SettingsView: View {
         .padding(24)
         .frame(minWidth: 620, minHeight: 540)
         .background(Color(nsColor: .windowBackgroundColor))
+    }
+
+    private var wakeStatus: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "moon.zzz")
+                .foregroundStyle(.secondary)
+            Text("Last wake: \(state.lastWakeSummary)")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Spacer()
+        }
     }
 
     private var header: some View {

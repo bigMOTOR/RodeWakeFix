@@ -18,9 +18,11 @@ selected before sleep.
 
 Open `RodeWakeFix.xcodeproj`, select the `RodeWakeFix` scheme, and press Run.
 
-The app is an accessory app, so it has no Dock or menu-bar icon. When launched
-normally it opens a small status window. When launched by its user LaunchAgent
-with `--background`, it stays hidden and watches sleep/wake events.
+The app is an accessory app, so it has no Dock icon. It provides a microphone
+icon in the menu bar for quickly switching the macOS default input, checking the
+RØDE state, and seeing the result of the most recent wake check. When launched
+normally it also opens a small status window. When launched by its user
+LaunchAgent with `--background`, it starts with only the menu-bar icon visible.
 
 ## Behaviour
 

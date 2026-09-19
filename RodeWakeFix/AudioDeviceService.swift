@@ -40,7 +40,16 @@ struct AudioDeviceService {
             throw AudioDeviceError.targetUnavailable
         }
 
-        var targetID = target.id
+        try setDefaultInput(target.id)
+    }
+
+    func setDefaultInput(_ deviceID: AudioDeviceID) throws {
+        let current = try snapshot()
+        guard current.inputs.contains(where: { $0.id == deviceID }) else {
+            throw AudioDeviceError.coreAudio(kAudioHardwareBadDeviceError, "Selecting input device")
+        }
+
+        var targetID = deviceID
         var address = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyDefaultInputDevice,
             mScope: kAudioObjectPropertyScopeGlobal,
@@ -55,7 +64,7 @@ struct AudioDeviceService {
             &targetID
         )
         guard status == noErr else {
-            throw AudioDeviceError.coreAudio(status, "Selecting RØDE")
+            throw AudioDeviceError.coreAudio(status, "Selecting input device")
         }
     }
 

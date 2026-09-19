@@ -16,10 +16,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let state = AppState()
     private var windowController: NSWindowController?
     private var wakeMonitor: WakeMonitor?
+    private var statusMenuController: StatusMenuController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         state.start()
+        statusMenuController = StatusMenuController(state: state) { [weak self] in
+            self?.showSettings()
+        }
 
         wakeMonitor = WakeMonitor(
             onWillSleep: { [weak self] in self?.state.recordWillSleep() },

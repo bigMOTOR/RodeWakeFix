@@ -1,4 +1,5 @@
 import AppKit
+import CoreAudio
 import Foundation
 
 @MainActor
@@ -9,7 +10,10 @@ final class AppState: ObservableObject {
     @Published var coreAudioPresent = false
     @Published var targetIsDefault = false
     @Published var defaultInputName = "Unknown"
+    @Published var defaultInputID: AudioDeviceID?
+    @Published var inputDevices: [AudioInputDevice] = []
     @Published var autoStartInstalled = false
+    @Published var lastWakeSummary = "No wake check yet"
     @Published var recentEvents: [String] = []
     @Published var isBusy = false
 
@@ -20,9 +24,11 @@ final class AppState: ObservableObject {
     private let defaults = UserDefaults.standard
 
     private let armedKey = "TargetWasDefaultBeforeSleep"
+    private let lastWakeSummaryKey = "LastWakeSummary"
 
     func start() {
         autoStartInstalled = launchAgent.isInstalled
+        lastWakeSummary = defaults.string(forKey: lastWakeSummaryKey) ?? "No wake check yet"
         logger.append("App started\(ProcessInfo.processInfo.arguments.contains("--background") ? " in background" : "")")
         refreshStatus(logEvent: false)
     }
@@ -39,6 +45,8 @@ final class AppState: ObservableObject {
 
         do {
             let snapshot = try audio.snapshot()
+            inputDevices = snapshot.inputs
+            defaultInputID = snapshot.defaultInputID
             coreAudioPresent = snapshot.target != nil
             targetIsDefault = snapshot.targetIsDefault
             defaultInputName = snapshot.defaultInput?.name ?? "None"
@@ -57,6 +65,8 @@ final class AppState: ObservableObject {
                 detail = "Nothing will be changed. Other microphones are left alone."
             }
         } catch {
+            inputDevices = []
+            defaultInputID = nil
             coreAudioPresent = false
             targetIsDefault = false
             headline = "Could not read audio state"
@@ -77,6 +87,22 @@ final class AppState: ObservableObject {
         } catch {
             logger.append("Could not select RØDE: \(error.localizedDescription)")
             headline = "Could not select RØDE"
+            detail = error.localizedDescription
+        }
+        refreshStatus(logEvent: false)
+    }
+
+    func selectInputDevice(_ deviceID: AudioDeviceID) {
+        guard let device = inputDevices.first(where: { $0.id == deviceID }) else {
+            refreshStatus(logEvent: false)
+            return
+        }
+        do {
+            try audio.setDefaultInput(deviceID)
+            logger.append("Input selected from menu bar: \(device.name)")
+        } catch {
+            logger.append("Could not select \(device.name): \(error.localizedDescription)")
+            headline = "Could not select microphone"
             detail = error.localizedDescription
         }
         refreshStatus(logEvent: false)
@@ -146,7 +172,7 @@ final class AppState: ObservableObject {
     private func performWakeCheck() {
         let wasTargetDefault = defaults.bool(forKey: armedKey)
         guard wasTargetDefault else {
-            logger.append("Wake check — RØDE was not default before sleep; no action")
+            recordWakeOutcome("Skipped — another microphone was selected", log: "Wake check — RØDE was not default before sleep; no action")
             refreshStatus(logEvent: false)
             return
         }
@@ -156,19 +182,26 @@ final class AppState: ObservableObject {
             let snapshot = try audio.snapshot()
             if snapshot.target != nil {
                 if snapshot.targetIsDefault {
-                    logger.append("Wake check — RØDE returned normally; no repair needed")
+                    recordWakeOutcome("OK — RØDE returned normally", log: "Wake check — RØDE returned normally; no repair needed")
                 } else {
                     try audio.setTargetAsDefault()
-                    logger.append("Wake check — restored RØDE as system default input")
+                    recordWakeOutcome("Fixed — RØDE restored", log: "Wake check — restored RØDE as system default input")
                 }
             } else if usbStatus.isPresent {
-                logger.append("Wake check — failure captured: USB present, CoreAudio input missing")
+                recordWakeOutcome("Needs repair — missing from CoreAudio", log: "Wake check — failure captured: USB present, CoreAudio input missing")
             } else {
-                logger.append("Wake check — RØDE unplugged; no action")
+                recordWakeOutcome("Skipped — RØDE was unplugged", log: "Wake check — RØDE unplugged; no action")
             }
         } catch {
-            logger.append("Wake check failed: \(error.localizedDescription)")
+            recordWakeOutcome("Check failed", log: "Wake check failed: \(error.localizedDescription)")
         }
         refreshStatus(logEvent: false)
+    }
+
+    private func recordWakeOutcome(_ summary: String, log message: String) {
+        let time = Date.now.formatted(date: .omitted, time: .shortened)
+        lastWakeSummary = "\(summary) · \(time)"
+        defaults.set(lastWakeSummary, forKey: lastWakeSummaryKey)
+        logger.append(message)
     }
 }

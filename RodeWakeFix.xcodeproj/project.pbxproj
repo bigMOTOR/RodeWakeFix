@@ -16,6 +16,7 @@
 		100000000000000000000007 /* LogStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000007 /* LogStore.swift */; };
 		100000000000000000000008 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000008 /* SettingsView.swift */; };
 		100000000000000000000009 /* TargetMicrophone.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000009 /* TargetMicrophone.swift */; };
+		10000000000000000000000A /* StatusMenuController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000D /* StatusMenuController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -31,6 +32,7 @@
 		20000000000000000000000A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		20000000000000000000000B /* RodeWakeFix.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RodeWakeFix.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		20000000000000000000000C /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		20000000000000000000000D /* StatusMenuController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusMenuController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -59,6 +61,7 @@
 				200000000000000000000001 /* AppDelegate.swift */,
 				200000000000000000000002 /* AppState.swift */,
 				200000000000000000000008 /* SettingsView.swift */,
+				20000000000000000000000D /* StatusMenuController.swift */,
 				200000000000000000000003 /* AudioDeviceService.swift */,
 				200000000000000000000004 /* USBDeviceService.swift */,
 				200000000000000000000005 /* WakeMonitor.swift */,
@@ -155,6 +158,7 @@
 				100000000000000000000007 /* LogStore.swift in Sources */,
 				100000000000000000000008 /* SettingsView.swift in Sources */,
 				100000000000000000000009 /* TargetMicrophone.swift in Sources */,
+				10000000000000000000000A /* StatusMenuController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
