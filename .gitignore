@@ -1,0 +1,7 @@
+DerivedData/
+Build/
+.DS_Store
+*.xcuserstate
+xcuserdata/
+*.xccheckout
+*.xcscmblueprint
