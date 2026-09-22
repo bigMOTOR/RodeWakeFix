@@ -163,3 +163,76 @@ struct AudioDeviceService {
         }
     }
 }
+
+final class AudioInputMonitor {
+    private let systemObject = AudioObjectID(kAudioObjectSystemObject)
+    private let queue = DispatchQueue.main
+    private var listener: AudioObjectPropertyListenerBlock?
+
+    private var defaultInputAddress = AudioObjectPropertyAddress(
+        mSelector: kAudioHardwarePropertyDefaultInputDevice,
+        mScope: kAudioObjectPropertyScopeGlobal,
+        mElement: kAudioObjectPropertyElementMain
+    )
+
+    private var devicesAddress = AudioObjectPropertyAddress(
+        mSelector: kAudioHardwarePropertyDevices,
+        mScope: kAudioObjectPropertyScopeGlobal,
+        mElement: kAudioObjectPropertyElementMain
+    )
+
+    func start(onChange: @escaping () -> Void) {
+        guard listener == nil else { return }
+
+        let listener: AudioObjectPropertyListenerBlock = { _, _ in
+            onChange()
+        }
+
+        guard AudioObjectAddPropertyListenerBlock(
+            systemObject,
+            &defaultInputAddress,
+            queue,
+            listener
+        ) == noErr else {
+            return
+        }
+
+        guard AudioObjectAddPropertyListenerBlock(
+            systemObject,
+            &devicesAddress,
+            queue,
+            listener
+        ) == noErr else {
+            AudioObjectRemovePropertyListenerBlock(
+                systemObject,
+                &defaultInputAddress,
+                queue,
+                listener
+            )
+            return
+        }
+
+        self.listener = listener
+    }
+
+    func stop() {
+        guard let listener else { return }
+        AudioObjectRemovePropertyListenerBlock(
+            systemObject,
+            &defaultInputAddress,
+            queue,
+            listener
+        )
+        AudioObjectRemovePropertyListenerBlock(
+            systemObject,
+            &devicesAddress,
+            queue,
+            listener
+        )
+        self.listener = nil
+    }
+
+    deinit {
+        stop()
+    }
+}

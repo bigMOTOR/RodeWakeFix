@@ -78,6 +78,17 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
 
         menu.addItem(.separator())
 
+        let prefer = NSMenuItem(
+            title: "Always prefer RØDE when connected",
+            action: #selector(toggleTargetPreference(_:)),
+            keyEquivalent: ""
+        )
+        prefer.target = self
+        prefer.state = state.preferTarget ? .on : .off
+        menu.addItem(prefer)
+
+        menu.addItem(.separator())
+
         let check = NSMenuItem(title: "Check now", action: #selector(checkNow), keyEquivalent: "r")
         check.keyEquivalentModifierMask = [.command]
         check.target = self
@@ -132,6 +143,12 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
 
     @objc private func checkNow() {
         state.refreshStatus()
+        updateIcon()
+    }
+
+    @objc private func toggleTargetPreference(_ sender: NSMenuItem) {
+        state.setPreferTarget(!state.preferTarget)
+        sender.state = state.preferTarget ? .on : .off
         updateIcon()
     }
 

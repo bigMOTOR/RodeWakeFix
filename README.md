@@ -5,9 +5,9 @@ sleep and wake events, remembers whether the RØDE was the selected input before
 sleep, and restores it after wake when macOS still exposes the device to
 CoreAudio.
 
-The first version is deliberately conservative: it does not restart CoreAudio,
-does not record audio, and never changes the input when another microphone was
-selected before sleep.
+The app is deliberately conservative: it does not restart CoreAudio or record
+audio. An optional "Always prefer RØDE" setting can restore the RØDE when macOS
+changes the system input while the microphone is connected.
 
 ## Requirements
 
@@ -33,6 +33,10 @@ LaunchAgent with `--background`, it starts with only the menu-bar icon visible.
 - If USB still sees the RØDE but CoreAudio does not, it records the condition in
   the local log for the next repair stage.
 - If the RØDE is unplugged, it does nothing.
+- "Always prefer RØDE when connected" is off by default. When enabled, the app
+  observes CoreAudio input changes and restores the RØDE after a short debounce.
+- Selecting a different microphone from the app's menu turns that preference
+  off, so a manual override is never immediately undone.
 
 Logs are stored at `~/Library/Logs/RodeWakeFix/RodeWakeFix.log`.
 

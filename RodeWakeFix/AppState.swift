@@ -16,8 +16,10 @@ final class AppState: ObservableObject {
     @Published var lastWakeSummary = "No wake check yet"
     @Published var recentEvents: [String] = []
     @Published var isBusy = false
+    @Published var preferTarget = false
 
     private let audio = AudioDeviceService()
+    private let audioMonitor = AudioInputMonitor()
     private let usb = USBDeviceService()
     private let logger = LogStore.shared
     private let launchAgent = LaunchAgentManager()
@@ -25,12 +27,21 @@ final class AppState: ObservableObject {
 
     private let armedKey = "TargetWasDefaultBeforeSleep"
     private let lastWakeSummaryKey = "LastWakeSummary"
+    private let preferTargetKey = "PreferTargetWhileAvailable"
+    private var audioChangeTask: Task<Void, Never>?
 
     func start() {
         autoStartInstalled = launchAgent.isInstalled
         lastWakeSummary = defaults.string(forKey: lastWakeSummaryKey) ?? "No wake check yet"
+        preferTarget = defaults.bool(forKey: preferTargetKey)
         logger.append("App started\(ProcessInfo.processInfo.arguments.contains("--background") ? " in background" : "")")
         refreshStatus(logEvent: false)
+        audioMonitor.start { [weak self] in
+            Task { @MainActor in
+                self?.audioHardwareDidChange()
+            }
+        }
+        enforceTargetPreference(reason: "app launch")
     }
 
     func refreshStatus(logEvent: Bool = true) {
@@ -55,8 +66,10 @@ final class AppState: ObservableObject {
                 headline = "RØDE is ready"
                 detail = "It is connected and selected as the system input."
             } else if coreAudioPresent {
-                headline = "RØDE is available"
-                detail = "Current system input: \(defaultInputName)."
+                headline = "RØDE connected — \(defaultInputName) is active"
+                detail = preferTarget
+                    ? "RØDE preference is enabled; waiting for the audio change to settle."
+                    : "RØDE is available but is not the current system input."
             } else if usbPresent {
                 headline = "USB sees RØDE, CoreAudio does not"
                 detail = "This is the sleep/wake failure we want to capture."
@@ -98,6 +111,9 @@ final class AppState: ObservableObject {
             return
         }
         do {
+            if !TargetMicrophone.matches(name: device.name), preferTarget {
+                setPreferTarget(false, logReason: "manual selection of \(device.name)")
+            }
             try audio.setDefaultInput(deviceID)
             logger.append("Input selected from menu bar: \(device.name)")
         } catch {
@@ -106,6 +122,15 @@ final class AppState: ObservableObject {
             detail = error.localizedDescription
         }
         refreshStatus(logEvent: false)
+    }
+
+    func setPreferTarget(_ enabled: Bool) {
+        setPreferTarget(enabled, logReason: "menu setting")
+        if enabled {
+            enforceTargetPreference(reason: "preference enabled")
+        } else {
+            refreshStatus(logEvent: false)
+        }
     }
 
     func recordWillSleep() {
@@ -196,6 +221,39 @@ final class AppState: ObservableObject {
             recordWakeOutcome("Check failed", log: "Wake check failed: \(error.localizedDescription)")
         }
         refreshStatus(logEvent: false)
+    }
+
+    private func setPreferTarget(_ enabled: Bool, logReason: String) {
+        guard preferTarget != enabled else { return }
+        preferTarget = enabled
+        defaults.set(enabled, forKey: preferTargetKey)
+        logger.append("Always prefer RØDE \(enabled ? "enabled" : "disabled") — \(logReason)")
+        recentEvents = logger.recentLines()
+    }
+
+    private func audioHardwareDidChange() {
+        audioChangeTask?.cancel()
+        audioChangeTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            guard !Task.isCancelled, let self else { return }
+            self.refreshStatus(logEvent: false)
+            self.enforceTargetPreference(reason: "system input changed")
+        }
+    }
+
+    private func enforceTargetPreference(reason: String) {
+        guard preferTarget else { return }
+
+        do {
+            let snapshot = try audio.snapshot()
+            guard snapshot.target != nil, !snapshot.targetIsDefault else { return }
+            try audio.setTargetAsDefault()
+            logger.append("RØDE restored as system input — \(reason)")
+            refreshStatus(logEvent: false)
+        } catch {
+            logger.append("Could not apply RØDE preference — \(error.localizedDescription)")
+            recentEvents = logger.recentLines()
+        }
     }
 
     private func recordWakeOutcome(_ summary: String, log message: String) {

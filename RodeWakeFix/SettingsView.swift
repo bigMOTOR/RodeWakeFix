@@ -9,6 +9,7 @@ struct SettingsView: View {
             statusCard
             wakeStatus
             deviceGrid
+            preference
             actions
             activity
         }
@@ -135,6 +136,22 @@ struct SettingsView: View {
                 .buttonStyle(.borderedProminent)
             }
         }
+    }
+
+    private var preference: some View {
+        Toggle(isOn: Binding(
+            get: { state.preferTarget },
+            set: { state.setPreferTarget($0) }
+        )) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Always prefer RØDE when connected")
+                    .font(.subheadline.weight(.medium))
+                Text("If macOS switches to another system input, switch back to RØDE. Choosing another mic from the menu turns this off.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .toggleStyle(.switch)
     }
 
     private var activity: some View {
