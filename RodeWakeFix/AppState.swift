@@ -29,6 +29,9 @@ final class AppState: ObservableObject {
     private let lastWakeSummaryKey = "LastWakeSummary"
     private let preferTargetKey = "PreferTargetWhileAvailable"
     private var audioChangeTask: Task<Void, Never>?
+    private var healthTimer: Timer?
+    private var lastUSBPresence: Bool?
+    private var lastCoreAudioPresence: Bool?
 
     func start() {
         autoStartInstalled = launchAgent.isInstalled
@@ -41,7 +44,21 @@ final class AppState: ObservableObject {
                 self?.audioHardwareDidChange()
             }
         }
+        healthTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                guard let self else { return }
+                self.refreshStatus(logEvent: false)
+                self.enforceTargetPreference(reason: "periodic device check")
+            }
+        }
         enforceTargetPreference(reason: "app launch")
+    }
+
+    func stop() {
+        healthTimer?.invalidate()
+        healthTimer = nil
+        audioChangeTask?.cancel()
+        audioMonitor.stop()
     }
 
     func refreshStatus(logEvent: Bool = true) {
@@ -54,6 +71,13 @@ final class AppState: ObservableObject {
         let usbStatus = usb.targetStatus()
         usbPresent = usbStatus.isPresent
 
+        if let previous = lastUSBPresence, previous != usbPresent {
+            logger.append(usbPresent ? "Physical RØDE returned to USB" : "Physical RØDE disappeared from USB")
+        } else if lastUSBPresence == nil {
+            logger.append(usbPresent ? "Initial USB state — physical RØDE present" : "Initial USB state — physical RØDE not detected")
+        }
+        lastUSBPresence = usbPresent
+
         do {
             let snapshot = try audio.snapshot()
             inputDevices = snapshot.inputs
@@ -61,6 +85,13 @@ final class AppState: ObservableObject {
             coreAudioPresent = snapshot.target != nil
             targetIsDefault = snapshot.targetIsDefault
             defaultInputName = snapshot.defaultInput?.name ?? "None"
+
+            if let previous = lastCoreAudioPresence, previous != coreAudioPresent {
+                logger.append(coreAudioPresent ? "RØDE input returned to CoreAudio" : "RØDE input disappeared from CoreAudio")
+            } else if lastCoreAudioPresence == nil {
+                logger.append(coreAudioPresent ? "Initial CoreAudio state — RØDE input available" : "Initial CoreAudio state — RØDE input not found")
+            }
+            lastCoreAudioPresence = coreAudioPresent
 
             if targetIsDefault {
                 headline = "RØDE is ready"
@@ -72,10 +103,10 @@ final class AppState: ObservableObject {
                     : "RØDE is available but is not the current system input."
             } else if usbPresent {
                 headline = "USB sees RØDE, CoreAudio does not"
-                detail = "This is the sleep/wake failure we want to capture."
+                detail = "The microphone is on USB but unavailable as an audio input."
             } else {
-                headline = "RØDE is not connected"
-                detail = "Nothing will be changed. Other microphones are left alone."
+                headline = "Physical RØDE not detected on USB"
+                detail = "The power light does not confirm a USB data connection. Other microphones are left alone."
             }
         } catch {
             inputDevices = []
@@ -215,7 +246,7 @@ final class AppState: ObservableObject {
             } else if usbStatus.isPresent {
                 recordWakeOutcome("Needs repair — missing from CoreAudio", log: "Wake check — failure captured: USB present, CoreAudio input missing")
             } else {
-                recordWakeOutcome("Skipped — RØDE was unplugged", log: "Wake check — RØDE unplugged; no action")
+                recordWakeOutcome("USB missing — automatic repair unavailable", log: "Wake check — physical RØDE not detected on USB; cannot restore a device macOS cannot see")
             }
         } catch {
             recordWakeOutcome("Check failed", log: "Wake check failed: \(error.localizedDescription)")

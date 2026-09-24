@@ -32,7 +32,12 @@ LaunchAgent with `--background`, it starts with only the menu-bar icon visible.
   system default input.
 - If USB still sees the RØDE but CoreAudio does not, it records the condition in
   the local log for the next repair stage.
-- If the RØDE is unplugged, it does nothing.
+- Every 15 seconds, it checks whether the physical RØDE is present on USB and
+  available in CoreAudio, and logs transitions. If the microphone returns, the
+  input preference can restore it automatically.
+- If macOS does not detect the physical RØDE on USB, the app cannot power-cycle
+  the missing device. It leaves other microphones alone and reports that state
+  explicitly, rather than assuming the cable was unplugged.
 - "Always prefer RØDE when connected" is off by default. When enabled, the app
   observes CoreAudio input changes and restores the RØDE after a short debounce.
 - Selecting a different microphone from the app's menu turns that preference
