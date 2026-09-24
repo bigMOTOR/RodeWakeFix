@@ -21,6 +21,7 @@ final class AppState: ObservableObject {
     private let audio = AudioDeviceService()
     private let audioMonitor = AudioInputMonitor()
     private let usb = USBDeviceService()
+    private let usbMonitor = USBDeviceMonitor()
     private let logger = LogStore.shared
     private let launchAgent = LaunchAgentManager()
     private let defaults = UserDefaults.standard
@@ -29,7 +30,6 @@ final class AppState: ObservableObject {
     private let lastWakeSummaryKey = "LastWakeSummary"
     private let preferTargetKey = "PreferTargetWhileAvailable"
     private var audioChangeTask: Task<Void, Never>?
-    private var healthTimer: Timer?
     private var lastUSBPresence: Bool?
     private var lastCoreAudioPresence: Bool?
 
@@ -44,20 +44,17 @@ final class AppState: ObservableObject {
                 self?.audioHardwareDidChange()
             }
         }
-        healthTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
+        usbMonitor.start { [weak self] in
             Task { @MainActor in
-                guard let self else { return }
-                self.refreshStatus(logEvent: false)
-                self.enforceTargetPreference(reason: "periodic device check")
+                self?.audioHardwareDidChange()
             }
         }
         enforceTargetPreference(reason: "app launch")
     }
 
     func stop() {
-        healthTimer?.invalidate()
-        healthTimer = nil
         audioChangeTask?.cancel()
+        usbMonitor.stop()
         audioMonitor.stop()
     }
 
